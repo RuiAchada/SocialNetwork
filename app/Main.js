@@ -1,6 +1,6 @@
 import React, { useState, useReducer, useEffect } from "react"
 import ReactDOM from "react-dom/client"
-import { useImmerReducer } from "use-immer" // to replace React useReducer
+import { useImmerReducer } from "use-immer"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { CSSTransition } from "react-transition-group"
 import Axios from "axios"
@@ -9,7 +9,7 @@ Axios.defaults.baseURL = "http://localhost:8080"
 import StateContext from "./StateContext"
 import DispatchContext from "./DispatchContext"
 
-// Our components
+// My Components
 import Header from "./components/Header"
 import HomeGuest from "./components/HomeGuest"
 import Home from "./components/Home"
@@ -23,6 +23,7 @@ import Profile from "./components/Profile"
 import EditPost from "./components/EditPost"
 import NotFound from "./components/NotFound"
 import Search from "./components/Search"
+import Chat from "./components/Chat"
 
 function Main() {
   const initialState = {
@@ -33,27 +34,21 @@ function Main() {
       username: localStorage.getItem("complexappUsername"),
       avatar: localStorage.getItem("complexappAvatar")
     },
-    isSearchOpen: false
+    isSearchOpen: false,
+    isChatOpen: false,
+    unreadChatCount: 0
   }
 
-  // how the state data of the app should change for particular actions
-  // idea is that any time you call dispatch, what's in parentheses will get passed along into the reducer function as the action
   function ourReducer(draft, action) {
-    // draft gives a copy of state (using immer)
-    // state - current / previous state value
     switch (action.type) {
       case "login":
-        //return { loggedIn: true, flashMessages: state.flashMessages } // in React we need to return a new object, that's why we need state.flashMessages
-        // immer gives us a carbon copy of state and we can mutate it
         draft.loggedIn = true
         draft.user = action.data
-        return // or break
+        return
       case "logout":
-        //return { loggedIn: false, flashMessages: state.flashMessages }
         draft.loggedIn = false
         return
       case "flashMessage":
-        //return { loggedIn: state.loggedIn, flashMessages: state.flashMessages.concat(action.value) }
         draft.flashMessages.push(action.value)
         return
       case "openSearch":
@@ -62,28 +57,34 @@ function Main() {
       case "closeSearch":
         draft.isSearchOpen = false
         return
+      case "toggleChat":
+        draft.isChatOpen = !draft.isChatOpen
+        return
+      case "closeChat":
+        draft.isChatOpen = false
+        return
+      case "incrementUnreadChatCount":
+        draft.unreadChatCount++
+        return
+      case "clearUnreadChatCount":
+        draft.unreadChatCount = 0
+        return
     }
   }
 
-  const [state, dispatch] = useImmerReducer(ourReducer, initialState) // dispatch - used to call an update state. (function, initial value for state)
+  const [state, dispatch] = useImmerReducer(ourReducer, initialState)
 
   useEffect(() => {
     if (state.loggedIn) {
-      localStorage.setItem("complexappToken", state.user.token) // name, value
+      localStorage.setItem("complexappToken", state.user.token)
       localStorage.setItem("complexappUsername", state.user.username)
       localStorage.setItem("complexappAvatar", state.user.avatar)
     } else {
-      localStorage.removeItem("complexappToken") // name, value
+      localStorage.removeItem("complexappToken")
       localStorage.removeItem("complexappUsername")
       localStorage.removeItem("complexappAvatar")
     }
   }, [state.loggedIn])
-
-  // <ExampleContext.Provider value={{ state, dispatch }}>  is not optimal for performance
-  // because anytime these objects change, the components will re-render to have the latest value of state and dispatch
-  // also, some components will only need access to dispatch and not state
-  // so the React team recommends to have 2 context providers.
-  // 1 for state and other for dispatch.
 
   return (
     <StateContext.Provider value={state}>
@@ -104,6 +105,7 @@ function Main() {
           <CSSTransition timeout={330} in={state.isSearchOpen} classNames="search-overlay" unmountOnExit>
             <Search />
           </CSSTransition>
+          <Chat />
           <Footer />
         </BrowserRouter>
       </DispatchContext.Provider>
