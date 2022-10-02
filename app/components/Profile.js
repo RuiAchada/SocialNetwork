@@ -1,55 +1,146 @@
-import React, { useEffect, useContext, useState } from "react"
+import React, { useEffect, useContext } from "react"
 import Page from "./Page"
-import { useParams } from "react-router-dom"
+import { useParams, NavLink, Routes, Route } from "react-router-dom"
 import Axios from "axios"
 import StateContext from "../StateContext"
 import ProfilePosts from "./ProfilePosts"
+import ProfileFollowers from "./ProfileFollowers"
+import ProfileFollowing from "./ProfileFollowing"
+import { useImmer } from "use-immer"
 
 function Profile() {
-  const { username } = useParams() // http://localhost:3000/profile/user
+  const { username } = useParams()
   const appState = useContext(StateContext)
-  const [profileData, setProfileData] = useState({
-    profileUsername: "...",
-    profileAvatar: "https://gravatar.com/avatar/placeholder?s=128",
-    isFollowing: false,
-    counts: { postCounter: "", followerCounter: "", followingCount: "" } // default values to show before Axios completed the fetch
+  const [state, setState] = useImmer({
+    followActionLoading: false,
+    startFollowingRequestCount: 0,
+    stopFollowingRequestCount: 0,
+    profileData: {
+      profileUsername: "...",
+      profileAvatar: "https://gravatar.com/avatar/placeholder?s=128",
+      isFollowing: false,
+      counts: { postCount: "", followerCount: "", followingCount: "" }
+    }
   })
 
   useEffect(() => {
+    const ourRequest = Axios.CancelToken.source()
+
     async function fetchData() {
       try {
-        const response = await Axios.post(`/profile/${username}`, { token: appState.user.token })
-        console.log(response.data)
-        setProfileData(response.data)
+        const response = await Axios.post(`/profile/${username}`, { token: appState.user.token }, { cancelToken: ourRequest.token })
+        setState(draft => {
+          draft.profileData = response.data
+        })
       } catch (e) {
-        console.log(e)
+        console.log("There was a problem.")
       }
     }
     fetchData()
-  }, []) // run the function only the first time the component is rendered
+    return () => {
+      ourRequest.cancel()
+    }
+  }, [username])
+
+  useEffect(() => {
+    if (state.startFollowingRequestCount) {
+      setState(draft => {
+        draft.followActionLoading = true
+      })
+
+      const ourRequest = Axios.CancelToken.source()
+
+      async function fetchData() {
+        try {
+          const response = await Axios.post(`/addFollow/${state.profileData.profileUsername}`, { token: appState.user.token }, { cancelToken: ourRequest.token })
+          setState(draft => {
+            draft.profileData.isFollowing = true
+            draft.profileData.counts.followerCount++
+            draft.followActionLoading = false
+          })
+        } catch (e) {
+          console.log("There was a problem.")
+        }
+      }
+      fetchData()
+      return () => {
+        ourRequest.cancel()
+      }
+    }
+  }, [state.startFollowingRequestCount])
+
+  useEffect(() => {
+    if (state.stopFollowingRequestCount) {
+      setState(draft => {
+        draft.followActionLoading = true
+      })
+
+      const ourRequest = Axios.CancelToken.source()
+
+      async function fetchData() {
+        try {
+          const response = await Axios.post(`/removeFollow/${state.profileData.profileUsername}`, { token: appState.user.token }, { cancelToken: ourRequest.token })
+          setState(draft => {
+            draft.profileData.isFollowing = false
+            draft.profileData.counts.followerCount--
+            draft.followActionLoading = false
+          })
+        } catch (e) {
+          console.log("There was a problem.")
+        }
+      }
+      fetchData()
+      return () => {
+        ourRequest.cancel()
+      }
+    }
+  }, [state.stopFollowingRequestCount])
+
+  function startFollowing() {
+    setState(draft => {
+      draft.startFollowingRequestCount++
+    })
+  }
+
+  function stopFollowing() {
+    setState(draft => {
+      draft.stopFollowingRequestCount++
+    })
+  }
 
   return (
     <Page title="Profile Screen">
       <h2>
-        <img className="avatar-small" src={profileData.profileAvatar} /> {profileData.profileUsername}
-        <button className="btn btn-primary btn-sm ml-2">
-          Follow <i className="fas fa-user-plus"></i>
-        </button>
+        <img className="avatar-small" src={state.profileData.profileAvatar} /> {state.profileData.profileUsername}
+        {appState.loggedIn && !state.profileData.isFollowing && appState.user.username != state.profileData.profileUsername && state.profileData.profileUsername != "..." && (
+          <button onClick={startFollowing} disabled={state.followActionLoading} className="btn btn-primary btn-sm ml-2">
+            Follow <i className="fas fa-user-plus"></i>
+          </button>
+        )}
+        {appState.loggedIn && state.profileData.isFollowing && appState.user.username != state.profileData.profileUsername && state.profileData.profileUsername != "..." && (
+          <button onClick={stopFollowing} disabled={state.followActionLoading} className="btn btn-danger btn-sm ml-2">
+            Stop Following <i className="fas fa-user-times"></i>
+          </button>
+        )}
       </h2>
 
       <div className="profile-nav nav nav-tabs pt-2 mb-4">
-        <a href="#" className="active nav-item nav-link">
-          Posts: {profileData.counts.postCounter}
-        </a>
-        <a href="#" className="nav-item nav-link">
-          Followers: {profileData.counts.followerCounter}
-        </a>
-        <a href="#" className="nav-item nav-link">
-          Following: {profileData.counts.followingCount}
-        </a>
+        <NavLink to="" end className="nav-item nav-link">
+          Posts: {state.profileData.counts.postCount}
+        </NavLink>
+        <NavLink to="followers" className="nav-item nav-link">
+          Followers: {state.profileData.counts.followerCount}
+        </NavLink>
+        <NavLink to="following" className="nav-item nav-link">
+          Following: {state.profileData.counts.followingCount}
+        </NavLink>
       </div>
 
-      <ProfilePosts />
+      <Routes>
+        <Route path="" element={<ProfilePosts />} />
+        <Route path="followers" element={<ProfileFollowers />} />
+        <Route path="following" element={<ProfileFollowing />} />
+      </Routes>
     </Page>
   )
 }
