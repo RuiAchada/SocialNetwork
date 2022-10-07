@@ -11,36 +11,42 @@ function Search() {
   const [state, setState] = useImmer({
     searchTerm: "",
     results: [],
-    show: "neither",
+    show: "neither", // can be loading icon or show the results
     requestCount: 0
   })
 
   useEffect(() => {
     document.addEventListener("keyup", searchKeyPressHandler)
+    // clean up function. If search is closed we dont want to continue listening
     return () => document.removeEventListener("keyup", searchKeyPressHandler)
   }, [])
 
   useEffect(() => {
     if (state.searchTerm.trim()) {
+      // show the loading before sending the request
       setState(draft => {
         draft.show = "loading"
       })
       const delay = setTimeout(() => {
         setState(draft => {
-          draft.requestCount++
+          draft.requestCount++ // increment request to have axios in a different useEffect
         })
       }, 750)
-
+      //clean up function to cancel time out (DEBOUNCE)
       return () => clearTimeout(delay)
     } else {
+      // if string is empty
       setState(draft => {
         draft.show = "neither"
       })
     }
   }, [state.searchTerm])
 
+  // NOTE: to search, our database should have title and body indexed
   useEffect(() => {
+    // needs to be > 0. Will not run when component first renders
     if (state.requestCount) {
+      // cancel token
       const ourRequest = Axios.CancelToken.source()
       async function fetchResults() {
         try {
@@ -59,6 +65,7 @@ function Search() {
   }, [state.requestCount])
 
   function searchKeyPressHandler(e) {
+    // 27 ESC key
     if (e.keyCode == 27) {
       appDispatch({ type: "closeSearch" })
     }
@@ -67,12 +74,13 @@ function Search() {
   function handleInput(e) {
     const value = e.target.value
     setState(draft => {
+      // usually we dont mutate state but with immer we can using this draft
       draft.searchTerm = value
     })
   }
 
   return (
-    <div className="search-overlay">
+    <>
       <div className="search-overlay-top shadow-sm">
         <div className="container container--narrow">
           <label htmlFor="live-search-field" className="search-overlay-icon">
@@ -103,7 +111,7 @@ function Search() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

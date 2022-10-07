@@ -8,7 +8,7 @@ import Post from "./Post"
 function ProfilePosts(props) {
   const appState = useContext(StateContext)
   const { username } = useParams()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // check if axios request is still loading
   const [posts, setPosts] = useState([])
 
   useEffect(() => {
@@ -23,7 +23,7 @@ function ProfilePosts(props) {
         console.log("There was a problem.")
       }
     }
-    fetchPosts()
+    fetchPosts() // we set and call the function like this because in useEffect we can't pass an async function directly
     return () => {
       ourRequest.cancel()
     }

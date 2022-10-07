@@ -10,6 +10,9 @@ function HeaderLoggedIn(props) {
 
   function handleLogout() {
     appDispatch({ type: "logout" })
+    /*localStorage.removeItem("complexappToken")
+    localStorage.removeItem("complexappUsername")
+    localStorage.removeItem("complexappAvatar") // MOVED TO MAIN.JS */
     appDispatch({ type: "flashMessage", value: "You have successfully logged out." })
   }
 

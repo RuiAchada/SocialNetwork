@@ -167,6 +167,8 @@ function HomeGuest() {
       const ourRequest = Axios.CancelToken.source()
       async function fetchResults() {
         try {
+          // first argument is the url to send the request to.
+          // second argument is to send data to the server
           const response = await Axios.post("/register", { username: state.username.value, email: state.email.value, password: state.password.value }, { cancelToken: ourRequest.token })
           appDispatch({ type: "login", data: response.data })
           appDispatch({ type: "flashMessage", value: "Congrats! Welcome to your new account." })

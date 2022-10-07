@@ -1,29 +1,30 @@
-import React, { useState, useReducer, useEffect } from "react"
+import React, { useState, useReducer, useEffect, Suspense } from "react"
 import ReactDOM from "react-dom/client"
-import { useImmerReducer } from "use-immer"
+import { useImmerReducer } from "use-immer" // to replace React useReducer
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { CSSTransition } from "react-transition-group"
 import Axios from "axios"
-Axios.defaults.baseURL = "http://localhost:8080"
+Axios.defaults.baseURL = process.env.BACKENDURL || "" // add heroku production website here
 
 import StateContext from "./StateContext"
 import DispatchContext from "./DispatchContext"
 
 // My Components
+import LoadingDotsIcon from "./components/LoadingDotsIcon"
 import Header from "./components/Header"
 import HomeGuest from "./components/HomeGuest"
 import Home from "./components/Home"
 import Footer from "./components/Footer"
 import About from "./components/About"
 import Terms from "./components/Terms"
-import CreatePost from "./components/CreatePost"
-import ViewSinglePost from "./components/ViewSinglePost"
+const CreatePost = React.lazy(() => import("./components/CreatePost"))
+const ViewSinglePost = React.lazy(() => import("./components/ViewSinglePost"))
+const Search = React.lazy(() => import("./components/Search"))
+const Chat = React.lazy(() => import("./components/Chat"))
 import FlashMessages from "./components/FlashMessages"
 import Profile from "./components/Profile"
 import EditPost from "./components/EditPost"
 import NotFound from "./components/NotFound"
-import Search from "./components/Search"
-import Chat from "./components/Chat"
 
 function Main() {
   const initialState = {
@@ -39,12 +40,17 @@ function Main() {
     unreadChatCount: 0
   }
 
+  // how the state data of the app should change for particular actions
+  // idea is that any time you call dispatch, what's in parentheses will get passed along into the reducer function as the action
   function ourReducer(draft, action) {
+    // draft gives a copy of state (using immer)
+    // state - current / previous state value
     switch (action.type) {
       case "login":
+        // immer gives us a carbon copy of state and we can mutate it
         draft.loggedIn = true
         draft.user = action.data
-        return
+        return // or break
       case "logout":
         draft.loggedIn = false
         return
@@ -72,11 +78,11 @@ function Main() {
     }
   }
 
-  const [state, dispatch] = useImmerReducer(ourReducer, initialState)
+  const [state, dispatch] = useImmerReducer(ourReducer, initialState) // dispatch - used to call an update state. (function, initial value for state)
 
   useEffect(() => {
     if (state.loggedIn) {
-      localStorage.setItem("complexappToken", state.user.token)
+      localStorage.setItem("complexappToken", state.user.token) // name, value
       localStorage.setItem("complexappUsername", state.user.username)
       localStorage.setItem("complexappAvatar", state.user.avatar)
     } else {
@@ -107,25 +113,36 @@ function Main() {
   }, [])
 
   return (
+    // <ExampleContext.Provider value={{ state, dispatch }}>  is not optimal for performance
+    // because anytime these objects change, the components will re-render to have the latest value of state and dispatch
+    // also, some components will only need access to dispatch and not state
+    // so the React team recommends to have 2 context providers.
+    // 1 for state and other for dispatch.
     <StateContext.Provider value={state}>
       <DispatchContext.Provider value={dispatch}>
         <BrowserRouter>
           <FlashMessages messages={state.flashMessages} />
           <Header />
-          <Routes>
-            <Route path="/profile/:username/*" element={<Profile />} />
-            <Route path="/" element={state.loggedIn ? <Home /> : <HomeGuest />} />
-            <Route path="/post/:id" element={<ViewSinglePost />} />
-            <Route path="/post/:id/edit" element={<EditPost />} />
-            <Route path="/create-post" element={<CreatePost />} />
-            <Route path="/about-us" element={<About />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<LoadingDotsIcon />}>
+            <Routes>
+              <Route path="/profile/:username/*" element={<Profile />} />
+              <Route path="/" element={state.loggedIn ? <Home /> : <HomeGuest />} />
+              <Route path="/post/:id" element={<ViewSinglePost />} />
+              <Route path="/post/:id/edit" element={<EditPost />} />
+              <Route path="/create-post" element={<CreatePost />} />
+              <Route path="/about-us" element={<About />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
           <CSSTransition timeout={330} in={state.isSearchOpen} classNames="search-overlay" unmountOnExit>
-            <Search />
+            <div className="search-overlay">
+              <Suspense fallback="">
+                <Search />
+              </Suspense>
+            </div>
           </CSSTransition>
-          <Chat />
+          <Suspense fallback="">{state.loggedIn && <Chat />}</Suspense>
           <Footer />
         </BrowserRouter>
       </DispatchContext.Provider>
